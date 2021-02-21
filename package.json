@@ -16,5 +16,9 @@
   "bugs": {
     "url": "https://github.com/motasemAlsqoor/city-explorer/issues"
   },
-  "homepage": "https://github.com/motasemAlsqoor/city-explorer#readme"
+  "homepage": "https://github.com/motasemAlsqoor/city-explorer#readme",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1"
+  }
 }
