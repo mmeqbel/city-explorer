@@ -18,6 +18,7 @@ const ACCESSTOKEN = process.env.GEOCODE_API_KEY;
 app.get('/location', loacationHandler);
 app.get('/resturants', resturantsHandler);
 app.get('/weather', weatherHandler);
+app.get('/parks', parkHandler);
 app.get('*', (req, res) => {
     res.status(STATUS_NOT_FOUND).send('Sorry, this page not found');
 });
@@ -51,6 +52,14 @@ function weatherHandler(request, response) {
         response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
     });
 
+}
+function parkHandler(request, response) {
+    const query = request.query;
+    getParksData(query).then(data => {
+        response.status(STATUS_OK).send(data);
+    }).catch(error => {
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
+    });
 }
 
 app.listen(PORT, () => {
@@ -90,7 +99,6 @@ function getWheatherData(query_) {
         then(data => {
             
             const weatherObject=JSON.parse(data.text).data;
-            console.log(weatherObject);
             const records=[];
             weatherObject.forEach(element=>{
                 const description=element.weather.description;
@@ -133,6 +141,31 @@ function getLocationData(query_) {
             return error;
         });
 }
+function getParksData(query_) {
+    const query = {
+        lat:query_.latitude,
+        lon:query_.longitude,
+        key: process.env.PARKS_API_KEY
+    }
+    const url = `https://developer.nps.gov/api/v1/parks?api_key=${query.key}`;
+    return superagent.
+        get(url).
+        then(data => {
+            console.log(data.data[0].activities);
+            // const records=[];
+            // weatherObject.forEach(element=>{
+            //     const description=element.weather.description;
+            //     const date=element.datetime;
+            //     const weatherRecord=new WheatherRecord(description,date);
+            //     records.push(weatherRecord);
+            // });
+            // records.length=10;
+            return data;
+        })
+        .catch(error => {
+            return error;
+        });
+}
 /***************** *
  * ****************
     constructor
@@ -153,4 +186,11 @@ function ResturantRecord(name, locality, cuisine) {
     this.cuisine = cuisine;
     this.locality = locality;
 };
+function Park(name,adress,fee,description,url) {
+    this.name=name;
+    this.adress=adress;
+    this.fee=fee;
+    this.description=description;
+    this.url=url;
+}
 
