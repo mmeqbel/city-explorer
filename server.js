@@ -18,6 +18,7 @@ const ACCESSTOKEN = process.env.GEOCODE_API_KEY;
 app.get('/location', loacationHandler);
 app.get('/resturants', resturantsHandler);
 app.get('/weather', weatherHandler);
+app.get('/parks', parkHandler);
 app.get('*', (req, res) => {
     res.status(STATUS_NOT_FOUND).send('Sorry, this page not found');
 });
@@ -44,14 +45,21 @@ function loacationHandler(request, response) {
     });
 }
 function weatherHandler(request, response) {
-    const query = request.query.city;
+    const query = request.query;
     getWheatherData(query).then(data => {
-        console.log(data);
         response.status(STATUS_OK).send(data);
     }).catch(error => {
         response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
     });
 
+}
+function parkHandler(request, response) {
+    const query = request.query;
+    getParksData(query).then(data => {
+        response.status(STATUS_OK).send(data);
+    }).catch(error => {
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
+    });
 }
 
 app.listen(PORT, () => {
@@ -79,27 +87,31 @@ function getResturantsData(query) {
     });
     return resturantRecords;
 }
-function getWheatherData(city) {
+function getWheatherData(query_) {
     const query = {
-        city:city,
+        lat:query_.latitude,
+        lon:query_.longitude,
         key: process.env.WEATHER_API_KEY,
     }
-    const url = 'http://api.weatherbit.io/v2.0/current?';
+    const url = `http://api.weatherbit.io/v2.0/forecast/daily?lat=${query.lat}&lon=${query.lon}&key=${query.key}`;
     return superagent.
         get(url).
-        query(query).
         then(data => {
-            const weatherObject=JSON.parse(data.text).data[0];
-            const description=weatherObject.weather.description;
-            const date=weatherObject.ob_time;
-            const weatherRecord=new WheatherRecord(description,date);
-            console.log(weatherRecord);
-            return weatherRecord;
+            
+            const weatherObject=JSON.parse(data.text).data;
+            const records=[];
+            weatherObject.forEach(element=>{
+                const description=element.weather.description;
+                const date=element.datetime;
+                const weatherRecord=new WheatherRecord(description,date);
+                records.push(weatherRecord);
+            });
+            records.length=8;
+            return records;
         })
         .catch(error => {
             return error;
         });
-
 }
 function getLocationData(query_) {
     //we will get  location data  from locationIQ api 
@@ -129,6 +141,31 @@ function getLocationData(query_) {
             return error;
         });
 }
+function getParksData(query_) {
+    const query = {
+        lat:query_.latitude,
+        lon:query_.longitude,
+        key: process.env.PARKS_API_KEY
+    }
+    const url = `https://developer.nps.gov/api/v1/parks?api_key=${query.key}`;
+    return superagent.
+        get(url).
+        then(data => {
+            console.log(data.data[0].activities);
+            // const records=[];
+            // weatherObject.forEach(element=>{
+            //     const description=element.weather.description;
+            //     const date=element.datetime;
+            //     const weatherRecord=new WheatherRecord(description,date);
+            //     records.push(weatherRecord);
+            // });
+            // records.length=10;
+            return data;
+        })
+        .catch(error => {
+            return error;
+        });
+}
 /***************** *
  * ****************
     constructor
@@ -142,12 +179,18 @@ function CityLocation(query, displayName, lat, long) {
 }
 function WheatherRecord(description, date) {
     this.forecast = description;
-    var hummanReadableDate = new Date(date).toDateString();
-    this.time = hummanReadableDate;
+    this.time = date;
 }
 function ResturantRecord(name, locality, cuisine) {
     this.resturant = name;
     this.cuisine = cuisine;
     this.locality = locality;
 };
+function Park(name,adress,fee,description,url) {
+    this.name=name;
+    this.adress=adress;
+    this.fee=fee;
+    this.description=description;
+    this.url=url;
+}
 
