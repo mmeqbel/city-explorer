@@ -44,9 +44,8 @@ function loacationHandler(request, response) {
     });
 }
 function weatherHandler(request, response) {
-    const query = request.query.city;
+    const query = request.query;
     getWheatherData(query).then(data => {
-        console.log(data);
         response.status(STATUS_OK).send(data);
     }).catch(error => {
         response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
@@ -79,27 +78,32 @@ function getResturantsData(query) {
     });
     return resturantRecords;
 }
-function getWheatherData(city) {
+function getWheatherData(query_) {
     const query = {
-        city:city,
+        lat:query_.latitude,
+        lon:query_.longitude,
         key: process.env.WEATHER_API_KEY,
     }
-    const url = 'http://api.weatherbit.io/v2.0/current?';
+    const url = `http://api.weatherbit.io/v2.0/forecast/daily?lat=${query.lat}&lon=${query.lon}&key=${query.key}`;
     return superagent.
         get(url).
-        query(query).
         then(data => {
-            const weatherObject=JSON.parse(data.text).data[0];
-            const description=weatherObject.weather.description;
-            const date=weatherObject.ob_time;
-            const weatherRecord=new WheatherRecord(description,date);
-            console.log(weatherRecord);
-            return weatherRecord;
+            
+            const weatherObject=JSON.parse(data.text).data;
+            console.log(weatherObject);
+            const records=[];
+            weatherObject.forEach(element=>{
+                const description=element.weather.description;
+                const date=element.datetime;
+                const weatherRecord=new WheatherRecord(description,date);
+                records.push(weatherRecord);
+            });
+            records.length=8;
+            return records;
         })
         .catch(error => {
             return error;
         });
-
 }
 function getLocationData(query_) {
     //we will get  location data  from locationIQ api 
@@ -142,8 +146,7 @@ function CityLocation(query, displayName, lat, long) {
 }
 function WheatherRecord(description, date) {
     this.forecast = description;
-    var hummanReadableDate = new Date(date).toDateString();
-    this.time = hummanReadableDate;
+    this.time = date;
 }
 function ResturantRecord(name, locality, cuisine) {
     this.resturant = name;
