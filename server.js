@@ -1,72 +1,153 @@
 'use strict';
 
-const express= require('express');
+const express = require('express');
 const cors = require('cors');
+//super agent help us to send requests to another api's 
+//you can download it using [npm i superagent]
+const superagent = require('superagent');
 const app = express();
 app.use(cors());
 require('dotenv').config();
 
-const PORT = process.env.PORT;
-const STATUS_OK=200;
-
-app.get('/location',loacationHandler);
-app.get('/weather',weatherHandler);
-
-// handlers
-function loacationHandler(request,response) {
-    const query=request.query.city;
-    const locationData=getLocationData(query);
-    response.status(STATUS_OK).send(locationData);
-}
-function weatherHandler(request,response) {
-    const query=request.query.city;
-    const wheatherData=getWheatherData(query);
-    response.status(STATUS_OK).send(wheatherData);
-}
-
-app.listen(PORT,()=>{
-    console.log('the app is listening on port ${PORT}');
+const PORT = process.env.PORT || 3000;
+const STATUS_OK = 200;
+const STATUS_ERROR = 500;
+const STATUS_NOT_FOUND = 404;
+const ACCESSTOKEN = process.env.GEOCODE_API_KEY;
+//route
+app.get('/location', loacationHandler);
+app.get('/resturants', resturantsHandler);
+app.get('/weather', weatherHandler);
+app.get('*', (req, res) => {
+    res.status(STATUS_NOT_FOUND).send('Sorry, this page not found');
 });
 
-function getLocationData(query) {
-    const locationDataSource = require('./data/location.json');
-    const longitude = locationDataSource[0].lon;
-    const latitude = locationDataSource[0].lat;
-    const displayName = locationDataSource[0].display_name;
-    const cityLocation=new CityLocation(
-        query,
-        displayName,
-        latitude,
-        longitude);
-    return cityLocation;
-    
+
+//pk.ffcb52a761cedc8d4acf13a31dfe462f
+// handlers
+function resturantsHandler(request, response) {
+    try {
+        const query = request.query.city;
+        const resturantsData = getResturantsData(query);
+        response.status(STATUS_OK).send(resturantsData);
+    } catch (error) {
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
+    }
 }
-function getWheatherData(query) {
-    const wheatherDataSource = require('./data/weather.json');
-    const dataArray=wheatherDataSource.data;
-    let wheatherRecord=[];//array of records
-    dataArray.forEach(element=>{
-        const description=element.weather.description;
-        const date=element.valid_date;
-        wheatherRecord.push(new WheatherRecord(description,date));//new recprd
+
+function loacationHandler(request, response) {
+    const query = request.query.city;
+    getLocationData(query, response).then(data => {
+        response.status(STATUS_OK).send(data);
+    }).catch(error => {
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: `Sorry, something went wrong ${error}` });
     });
-    return wheatherRecord;
-    
+}
+function weatherHandler(request, response) {
+    const query = request.query.city;
+    getWheatherData(query).then(data => {
+        console.log(data);
+        response.status(STATUS_OK).send(data);
+    }).catch(error => {
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
+    });
+
+}
+
+app.listen(PORT, () => {
+    console.log(`the app is listening on port ${PORT}`);
+});
+
+function getResturantsData(query) {
+    // name, cuisines,locality
+
+    const resturantsDataSource = require('./data/resturants.json');
+    const resturantArray = resturantsDataSource.nearby_restaurants;
+    //console.log(resturantArray);
+    let resturantRecords = [];
+
+    resturantArray.forEach(element => {
+        console.log(element.restaurant)
+        const name = element.restaurant.name;
+        const cuisines = element.restaurant.cuisines;
+        const locality = element.restaurant.location.locality;
+        const resturantRecord = new ResturantRecord(
+            name,
+            cuisines,
+            locality);
+        resturantRecords.push(resturantRecord);
+    });
+    return resturantRecords;
+}
+function getWheatherData(city) {
+    const query = {
+        city:city,
+        key: process.env.WEATHER_API_KEY,
+    }
+    const url = 'http://api.weatherbit.io/v2.0/current?';
+    return superagent.
+        get(url).
+        query(query).
+        then(data => {
+            const weatherObject=JSON.parse(data.text).data[0];
+            const description=weatherObject.weather.description;
+            const date=weatherObject.ob_time;
+            const weatherRecord=new WheatherRecord(description,date);
+            console.log(weatherRecord);
+            return weatherRecord;
+        })
+        .catch(error => {
+            return error;
+        });
+
+}
+function getLocationData(query_) {
+    //we will get  location data  from locationIQ api 
+    //we use the super agent to make these stuff easier
+    const query = {
+        key: ACCESSTOKEN,
+        q: query_,
+        limit: 1,
+        format: 'json'
+    }
+    const locationIQUrl = `https://eu1.locationiq.com/v1/search.php?`;
+
+    return superagent
+        .get(locationIQUrl)
+        .query(query)
+        .then(data => {
+            //data to be processed
+            //the body contain the data that we need 
+            // new location object
+            const longitude = data.body[0].lon;
+            const latitude = data.body[0].lat;
+            const displayName = data.body[0].display_name;
+            let cityLocation = new CityLocation(query_, displayName, latitude, longitude);
+            return cityLocation;
+        })
+        .catch(error => {
+            return error;
+        });
 }
 /***************** *
  * ****************
     constructor
  * ****************
 *******************/
-function CityLocation(query,displayName,lat,long) {
-    this.search_query=query;
-    this.formatted_query=displayName;
-    this.latitude=lat,
-    this.longitude=long;
+function CityLocation(query, displayName, lat, long) {
+    this.search_query = query;
+    this.formatted_query = displayName;
+    this.latitude = lat,
+        this.longitude = long;
 }
-function WheatherRecord(description,date) {
-    this.forecast=description;
-    var hummanReadableDate=new Date(date).toDateString();
-    this.time=hummanReadableDate;
+function WheatherRecord(description, date) {
+    this.forecast = description;
+    var hummanReadableDate = new Date(date).toDateString();
+    this.time = hummanReadableDate;
 }
+function ResturantRecord(name, locality, cuisine) {
+    this.resturant = name;
+    this.cuisine = cuisine;
+    this.locality = locality;
+};
 
