@@ -18,7 +18,7 @@ app.use(cors());
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });//heroko
 
 
-app.use(cors());
+
 
 
 const PORT = process.env.PORT;
@@ -228,6 +228,8 @@ function getMovieData(query) {
                 element.release_date
             )
         });
+    }).catch(error=>{
+        return error;
     });
 }
 function getYelpData(query) {
