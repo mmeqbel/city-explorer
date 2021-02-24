@@ -231,7 +231,7 @@ function getMovieData(query) {
     });
 }
 function getYelpData(query) {
-    const url = `https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=${query.latitude}&longitude=${query.longitude}&limit=20`;
+    const url = `https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=${query.latitude}&longitude=${query.longitude}&limit=5&offset=${query.page*5}`;
     return superagent
         .get(url)
         .set("Authorization", `Bearer ${process.env.YELP_API_KEY}`)
