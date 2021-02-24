@@ -9,9 +9,9 @@ const superagent = require('superagent');
 const app = express();
 
 const pg = require('pg');
-const { connect } = require('superagent');
+//const { connect } = require('superagent');
 
-
+app.use(cors());
 
 //const { checkout } = require('superagent');
 //const client = new pg.Client(process.env.DATABASE_URL);//local
