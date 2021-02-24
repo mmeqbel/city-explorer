@@ -216,7 +216,7 @@ function getParksData(query_) {
         });
 }
 function getMovieData(query) {
-    const url = `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.MOVIE_API_KEY}`;
+    const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${query.search_query}&limit=20&sort_by=popularity.asc`;
     return superagent.get(url).then(data => {
         return JSON.parse(data.text).results.map(element => {
             return new Movie(element.title,
