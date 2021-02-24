@@ -11,8 +11,8 @@ const app = express();
 const pg = require('pg');
 
 //const { checkout } = require('superagent');
-//const client = new pg.Client(process.env.DATABASE_URL);
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client(process.env.DATABASE_URL);//local
+//const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });//heroko
 
 
 app.use(cors());
@@ -29,12 +29,14 @@ app.get('/location', loacationHandler);
 app.get('/resturants', resturantsHandler);
 app.get('/weather', weatherHandler);
 app.get('/parks', parkHandler);
+app.get('/movies', movieHandler);
 app.get('*', (req, res) => {
     res.status(STATUS_NOT_FOUND).send('Sorry, this page not found');
 });
 
-
-//utilities
+/*************************************************************************************
+ * ////////////////////////////////utilities\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
 function insertInDb(data) {
     //console.log("inserting ........");
     let db_query = `INSERT INTO locations(search_query,formatted_query,latitude,longitude) VALUES('${data.search_query}','${data.formatted_query}',${data.latitude},${data.longitude})`;
@@ -72,7 +74,10 @@ function getLocationDataFromApi(query_) {
             return error;
         });
 }
-// handlers
+/*************************************************************************************
+ * ////////////////////////////////handlers\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
+
 function loacationHandler(request, response) {
     const query = request.query.city;
     getLocationData(query).then(data => {
@@ -107,7 +112,19 @@ function parkHandler(request, response) {
         response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
     });
 }
-//getter
+function movieHandler(request, response) {
+    const query = request.query;
+    getMovieData(query).then(data => {
+        response.status(STATUS_OK).send(data);
+    }).catch(error => {
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
+    });
+}
+
+/*************************************************************************************
+ * ////////////////////////////////getters\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
+
 function getResturantsData(query) {
     // name, cuisines,locality
 
@@ -164,6 +181,7 @@ function getLocationData(query) {
 }
 function getParksData(query_) {
 
+
     const query = {
         q: query_.search_query,
         key: process.env.PARKS_API_KEY
@@ -185,11 +203,24 @@ function getParksData(query_) {
             return error;
         });
 }
-/***************** *
- * ****************
-    constructor
- * ****************
-*******************/
+function getMovieData(query) {
+    const url = `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.MOVIE_API_KEY}`;
+    return superagent.get(url).then(data => {
+        return JSON.parse(data.text).results.map(element => {
+            return new Movie(element.title,
+                element.overview,
+                element.vote_average,
+                element.vote_count,
+                element.backdrop_path,
+                element.popularity,
+                element.release_date
+            )
+        });
+    });
+}
+/*************************************************************************************
+ * ////////////////////////////////constructor\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
 function CityLocation(query, displayName, lat, long) {
     this.search_query = query;
     this.formatted_query = displayName;
@@ -211,6 +242,15 @@ function Park(name, adress, fee, description, url) {
     this.fee = fee;
     this.description = description;
     this.url = url;
+}
+function Movie(title, overview, average_votes, total_votes, image_url, popularity, released_on) {
+    this.title = title;
+    this.overview = overview;
+    this.average_votes = average_votes;
+    this.total_votes = total_votes;
+    this.image_url = "https://image.tmdb.org/t/p/w500/" + image_url;
+    this.popularity = popularity;
+    this.released_on = released_on;
 }
 
 client.connect().then(() => {
