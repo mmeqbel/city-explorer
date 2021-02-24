@@ -119,6 +119,7 @@ function parkHandler(request, response) {
 function movieHandler(request, response) {
     const query = request.query;
     getMovieData(query).then(data => {
+        console.log(data);
         response.status(STATUS_OK).send(data);
     }).catch(error => {
         console.log(error);
