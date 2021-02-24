@@ -121,6 +121,7 @@ function movieHandler(request, response) {
     getMovieData(query).then(data => {
         response.status(STATUS_OK).send(data);
     }).catch(error => {
+        console.log(error);
         response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: `Sorry, something went wrong error : ${error}` });
     });
 }
