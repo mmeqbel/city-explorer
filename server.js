@@ -9,6 +9,9 @@ const superagent = require('superagent');
 const app = express();
 
 const pg = require('pg');
+const { connect } = require('superagent');
+
+
 
 //const { checkout } = require('superagent');
 const client = new pg.Client(process.env.DATABASE_URL);//local
@@ -30,6 +33,7 @@ app.get('/resturants', resturantsHandler);
 app.get('/weather', weatherHandler);
 app.get('/parks', parkHandler);
 app.get('/movies', movieHandler);
+app.get('/yelp', yelpHandler);
 app.get('*', (req, res) => {
     res.status(STATUS_NOT_FOUND).send('Sorry, this page not found');
 });
@@ -115,6 +119,14 @@ function parkHandler(request, response) {
 function movieHandler(request, response) {
     const query = request.query;
     getMovieData(query).then(data => {
+        response.status(STATUS_OK).send(data);
+    }).catch(error => {
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
+    });
+}
+function yelpHandler(request, response) {
+    const query = request.query;
+    getYelpData(query).then(data => {
         response.status(STATUS_OK).send(data);
     }).catch(error => {
         response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
@@ -218,6 +230,25 @@ function getMovieData(query) {
         });
     });
 }
+function getYelpData(query) {
+    const url = `https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=${query.latitude}&longitude=${query.longitude}&limit=20`;
+    return superagent
+        .get(url)
+        .set("Authorization", `Bearer ${process.env.YELP_API_KEY}`)
+        .then(data => {
+            return JSON.parse(data.text).businesses.map(element => {
+                return new Yelp(element.name,
+                    element.image_url,
+                    element.price,
+                    element.rating,
+                    element.url,
+                )
+            });
+        }).catch(error=>{
+            console.log("here ",error.response.text);
+            return error.response.text;
+        });
+}
 /*************************************************************************************
  * ////////////////////////////////constructor\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
  **************************************************************************************/
@@ -252,7 +283,15 @@ function Movie(title, overview, average_votes, total_votes, image_url, popularit
     this.popularity = popularity;
     this.released_on = released_on;
 }
-
+function Yelp(name, image_url, price, rating, url) {
+    this.name = name;
+    this.image_url = image_url;
+    this.price = price;
+    this.rating = rating;
+    this.url = url;
+}
+//////////////////////////////////////////////////////////////////
+//connect
 client.connect().then(() => {
     app.listen(PORT, () => {
         console.log('the app is listening to port ' + PORT);
