@@ -121,7 +121,7 @@ function movieHandler(request, response) {
     getMovieData(query).then(data => {
         response.status(STATUS_OK).send(data);
     }).catch(error => {
-        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: `Sorry, something went wrong error : ${error}` });
     });
 }
 function yelpHandler(request, response) {
