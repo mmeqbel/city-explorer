@@ -14,8 +14,8 @@ const { connect } = require('superagent');
 
 
 //const { checkout } = require('superagent');
-const client = new pg.Client(process.env.DATABASE_URL);//local
-//const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });//heroko
+//const client = new pg.Client(process.env.DATABASE_URL);//local
+const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });//heroko
 
 
 app.use(cors());
