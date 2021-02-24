@@ -18,7 +18,7 @@ app.use(cors());
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });//heroko
 
 
-app.use(cors());
+
 
 
 const PORT = process.env.PORT;
@@ -121,7 +121,7 @@ function movieHandler(request, response) {
     getMovieData(query).then(data => {
         response.status(STATUS_OK).send(data);
     }).catch(error => {
-        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: `Sorry, something went wrong error : ${error}` });
     });
 }
 function yelpHandler(request, response) {
@@ -228,6 +228,8 @@ function getMovieData(query) {
                 element.release_date
             )
         });
+    }).catch(error=>{
+        return error;
     });
 }
 function getYelpData(query) {
