@@ -11,8 +11,8 @@ const app = express();
 const pg = require('pg');
 
 //const { checkout } = require('superagent');
-//const client = new pg.Client(process.env.DATABASE_URL);
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client(process.env.DATABASE_URL);
+//const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
 
 app.use(cors());
@@ -71,18 +71,6 @@ function getLocationDataFromApi(query_) {
         .catch(error => {
             return error;
         });
-}
-function getLocationDataFromDataBase(query) {
-    //return data from database
-    //console.log("query getLocationDataFromDataBase() 75",query);
-    let db_query = `select * from locations where search_query=${query}`;
-    return client.query(db_query).then(data => {
-        const longitude = data.row[0].longitude;
-        const latitude = data.row[0].latitude;
-        const displayName = data.row[0].search_query;
-        let cityLocation = new CityLocation(query, displayName, latitude, longitude);
-        return cityLocation;
-    });
 }
 // handlers
 function loacationHandler(request, response) {
@@ -151,17 +139,11 @@ function getWheatherData(query_) {
     return superagent.
         get(url).
         then(data => {
-
             const weatherObject = JSON.parse(data.text).data;
-            const records = [];
-            weatherObject.forEach(element => {
-                const description = element.weather.description;
-                const date = element.datetime;
-                const weatherRecord = new WheatherRecord(description, date);
-                records.push(weatherRecord);
+            weatherObject.length = 8;
+            return weatherObject.map(element => {
+                return new WheatherRecord(element.weather.description, element.datetime)
             });
-            records.length = 8;
-            return records;
         })
         .catch(error => {
             return error;
@@ -181,25 +163,23 @@ function getLocationData(query) {
     });
 }
 function getParksData(query_) {
+
     const query = {
-        lat: query_.latitude,
-        lon: query_.longitude,
+        q: query_.search_query,
         key: process.env.PARKS_API_KEY
     }
-    const url = `https://developer.nps.gov/api/v1/parks?api_key=${query.key}`;
+    const url = `https://developer.nps.gov/api/v1/parks?api_key=${query.key}&q=${query.q}`;
     return superagent.
         get(url).
         then(data => {
-            console.log(data.data[0].activities);
-            // const records=[];
-            // weatherObject.forEach(element=>{
-            //     const description=element.weather.description;
-            //     const date=element.datetime;
-            //     const weatherRecord=new WheatherRecord(description,date);
-            //     records.push(weatherRecord);
-            // });
-            // records.length=10;
-            return data;
+            return data.body.data.map(element => {
+                const park = new Park(element.fullName,
+                    Object.values(element.addresses[0]).join('"'),
+                    element.entranceFees[0].cost,
+                    element.description,
+                    element.url);
+                return park;
+            });//end .then
         })
         .catch(error => {
             return error;
