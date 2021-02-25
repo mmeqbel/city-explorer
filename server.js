@@ -1,172 +1,83 @@
 'use strict';
-require('dotenv').config();
-const express = require('express');
+/*************************************************************************************
+ * ////////////////////////////////libraries\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
+
+require('dotenv').config();//confugure envirment 
+const superagent = require('superagent');//easly works with api's, super agent help us to send requests to another api's
+const express = require('express');//express framowrk (server configuration)
 const cors = require('cors');
-
-//super agent help us to send requests to another api's 
-//you can download it using [npm i superagent]
-const superagent = require('superagent');
-const app = express();
-
 const pg = require('pg');
-//const { connect } = require('superagent');
 
+/*************************************************************************************
+ * ////////////////////////////////initalization\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
+const app = express();
 app.use(cors());
-
-//const { checkout } = require('superagent');
 //const client = new pg.Client(process.env.DATABASE_URL);//local
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });//heroko
 
 
-
-
-
+/*************************************************************************************
+ * ////////////////////////////////constant variables\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
 const PORT = process.env.PORT;
 const STATUS_OK = 200;
 const STATUS_ERROR = 500;
 const STATUS_NOT_FOUND = 404;
-const ACCESSTOKEN = process.env.GEOCODE_API_KEY;
+// api's urls
+const apiUrls={
+    geocode:`http://api.weatherbit.io/v2.0/forecast/daily?key=${process.env.GEOCODE_API_KEY}&`,
+    weather:`http://api.weatherbit.io/v2.0/forecast/daily?key=${process.env.WEATHER_API_KEY}&`,
+    parks:`https://developer.nps.gov/api/v1/parks?api_key=${process.env.PARKS_API_KEY}&`,
+    movie:`https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&`,
+    yelp:`https://api.yelp.com/v3/businesses/search?&`,
+    locationIQUrl:`https://eu1.locationiq.com/v1/search.php?`
+}
 
-//route
-app.get('/location', loacationHandler);
-app.get('/resturants', resturantsHandler);
-app.get('/weather', weatherHandler);
-app.get('/parks', parkHandler);
-app.get('/movies', movieHandler);
-app.get('/yelp', yelpHandler);
+
+/*************************************************************************************
+ * ////////////////////////////////route\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
+app.get('/location', (request,response)=>{
+    requestHandler(request,response,apiUrls.locationIQUrl,getLocationData);
+});
+app.get('/weather', (request,response)=>{
+    requestHandler(request,response,apiUrls.weather,getWheatherData);
+});
+app.get('/parks', (request,response)=>{
+    requestHandler(request,response,apiUrls.parks,getParksData);
+});
+app.get('/movies', (request,response)=>{
+    requestHandler(request,response,apiUrls.movie,getMovieData);
+});
+app.get('/yelp', (request,response)=>{
+    requestHandler(request,response,apiUrls.yelp,getYelpData);
+});
 app.get('*', (req, res) => {
     res.status(STATUS_NOT_FOUND).send('Sorry, this page not found');
 });
 
-/*************************************************************************************
- * ////////////////////////////////utilities\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
- **************************************************************************************/
-function insertInDb(data) {
-    //console.log("inserting ........");
-    let db_query = `INSERT INTO locations(search_query,formatted_query,latitude,longitude) VALUES('${data.search_query}','${data.formatted_query}',${data.latitude},${data.longitude})`;
-    client.query(db_query).then(data => {
-        console.log('inserted')
-    }).catch(error => {
-        console.log(error);
-    });
-}
-function getLocationDataFromApi(query_) {
-    const query = {
-        key: ACCESSTOKEN,
-        q: query_,
-        limit: 1,
-        format: 'json'
-    }
-    const locationIQUrl = `https://eu1.locationiq.com/v1/search.php?`;
-
-    return superagent
-        .get(locationIQUrl)
-        .query(query)
-        .then(data => {
-            //data to be processed
-            //the body contain the data that we need 
-            // new location object
-            const longitude = data.body[0].lon;
-            const latitude = data.body[0].lat;
-            const displayName = data.body[0].display_name;
-            let cityLocation = new CityLocation(query_, displayName, latitude, longitude);
-            insertInDb(cityLocation);
-            return cityLocation;
-
-        })
-        .catch(error => {
-            return error;
-        });
-}
-/*************************************************************************************
- * ////////////////////////////////handlers\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
- **************************************************************************************/
-
-function loacationHandler(request, response) {
-    const query = request.query.city;
-    getLocationData(query).then(data => {
-        response.status(STATUS_OK).send(data);
-    }).catch(error => {
-        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: `Sorry, something went wrong ${error}` });
-    });
-}
-function resturantsHandler(request, response) {
-    try {
-        const query = request.query.city;
-        const resturantsData = getResturantsData(query);
-        response.status(STATUS_OK).send(resturantsData);
-    } catch (error) {
-        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
-    }
-}
-function weatherHandler(request, response) {
-    const query = request.query;
-    getWheatherData(query).then(data => {
-        response.status(STATUS_OK).send(data);
-    }).catch(error => {
-        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
-    });
-
-}
-function parkHandler(request, response) {
-    const query = request.query;
-    getParksData(query).then(data => {
-        response.status(STATUS_OK).send(data);
-    }).catch(error => {
-        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
-    });
-}
-function movieHandler(request, response) {
-    const query = request.query;
-    getMovieData(query).then(data => {
-        console.log(data);
-        response.status(STATUS_OK).send(data);
-    }).catch(error => {
-        console.log(error);
-        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: `Sorry, something went wrong error : ${error}` });
-    });
-}
-function yelpHandler(request, response) {
-    const query = request.query;
-    getYelpData(query).then(data => {
-        response.status(STATUS_OK).send(data);
-    }).catch(error => {
-        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: 'Sorry, something went wrong' });
-    });
-}
 
 /*************************************************************************************
  * ////////////////////////////////getters\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
  **************************************************************************************/
 
-function getResturantsData(query) {
-    // name, cuisines,locality
 
-    const resturantsDataSource = require('./data/resturants.json');
-    const resturantArray = resturantsDataSource.nearby_restaurants;
-    //console.log(resturantArray);
-    let resturantRecords = [];
-
-    resturantArray.forEach(element => {
-        console.log(element.restaurant)
-        const name = element.restaurant.name;
-        const cuisines = element.restaurant.cuisines;
-        const locality = element.restaurant.location.locality;
-        const resturantRecord = new ResturantRecord(
-            name,
-            cuisines,
-            locality);
-        resturantRecords.push(resturantRecord);
+function getLocationData(query,baseUrl) {
+    let db_query = `select * from locations where search_query='${query.city}'`;
+    return client.query(db_query).then(data => {
+        if (data.rows.length == 0)return getLocationDataFromApi(query,baseUrl);
+        return data.rows[0];  
     });
-    return resturantRecords;
 }
-function getWheatherData(query_) {
+function getWheatherData(query_,baseUrl) {
     const query = {
         lat: query_.latitude,
         lon: query_.longitude,
         key: process.env.WEATHER_API_KEY,
     }
-    const url = `http://api.weatherbit.io/v2.0/forecast/daily?lat=${query.lat}&lon=${query.lon}&key=${query.key}`;
+    const url =`${baseUrl}lat=${query.lat}&lon=${query.lon}`;
     return superagent.
         get(url).
         then(data => {
@@ -180,27 +91,12 @@ function getWheatherData(query_) {
             return error;
         });
 }
-function getLocationData(query) {
-    //we will get  location data  from locationIQ api 
-    //we use the super agent to make these stuff easier
-    let db_query = `select * from locations where search_query='${query}'`;
-    return client.query(db_query).then(data => {
-        console.log("data rows is", data.rows)
-        if (data.rows.length == 0) {
-            return getLocationDataFromApi(query);
-        } else {
-            return data.rows[0];
-        }
-    });
-}
-function getParksData(query_) {
-
-
+function getParksData(query_,baseUrl) {
     const query = {
         q: query_.search_query,
         key: process.env.PARKS_API_KEY
     }
-    const url = `https://developer.nps.gov/api/v1/parks?api_key=${query.key}&q=${query.q}`;
+    const url =`${baseUrl}q=${query.q}`;
     return superagent.
         get(url).
         then(data => {
@@ -217,8 +113,8 @@ function getParksData(query_) {
             return error;
         });
 }
-function getMovieData(query) {
-    const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${query.search_query}&limit=20&sort_by=popularity.asc`;
+function getMovieData(query,baseUrl) {
+    const url = `${baseUrl}query=${query.search_query}&limit=20&sort_by=popularity.asc`;
     return superagent.get(url).then(data => {
         return JSON.parse(data.text).results.map(element => {
             return new Movie(element.title,
@@ -234,8 +130,8 @@ function getMovieData(query) {
         return error;
     });
 }
-function getYelpData(query) {
-    const url = `https://api.yelp.com/v3/businesses/search?term=restaurants&latitude=${query.latitude}&longitude=${query.longitude}&limit=5&offset=${query.page*5}`;
+function getYelpData(query,baseUrl) {
+    const url = `${baseUrl}term=restaurants&latitude=${query.latitude}&longitude=${query.longitude}&limit=5&offset=${query.page*5}`;
     return superagent
         .get(url)
         .set("Authorization", `Bearer ${process.env.YELP_API_KEY}`)
@@ -249,8 +145,45 @@ function getYelpData(query) {
                 )
             });
         }).catch(error=>{
-            console.log("here ",error.response.text);
             return error.response.text;
+        });
+}
+
+/*************************************************************************************
+ * ////////////////////////////////utilities\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ **************************************************************************************/
+function requestHandler(request,response,baseUrl,getDataCallback){
+    getDataCallback(request.query,baseUrl).then(data => {
+        response.status(STATUS_OK).send(data);
+    }).catch(error => {
+        response.status(STATUS_ERROR).send({ status: STATUS_ERROR, responseText: `Sorry, something went wrong ${error}` });
+    }); 
+}
+function insertInDb(data) {
+    let db_query = `INSERT INTO locations(search_query,formatted_query,latitude,longitude) VALUES('${data.search_query}','${data.formatted_query}',${data.latitude},${data.longitude})`;
+    client.query(db_query);
+}
+function getLocationDataFromApi(query_,baseUrl) {
+    const query = {
+        key: process.env.GEOCODE_API_KEY,
+        city: query_.city,
+        limit: 1,
+        format: 'json'
+    }
+    return superagent
+        .get(baseUrl)
+        .query(query)
+        .then(data => {
+            const longitude = data.body[0].lon;
+            const latitude = data.body[0].lat;
+            const displayName = data.body[0].display_name;
+            let cityLocation = new CityLocation(query_, displayName, latitude, longitude);
+            insertInDb(cityLocation);
+            return cityLocation;
+        })
+        .catch(error => {
+            console.log("error get location",error.response.error.path);
+            return error;
         });
 }
 /*************************************************************************************
@@ -266,11 +199,6 @@ function WheatherRecord(description, date) {
     this.forecast = description;
     this.time = date;
 }
-function ResturantRecord(name, locality, cuisine) {
-    this.resturant = name;
-    this.cuisine = cuisine;
-    this.locality = locality;
-};
 function Park(name, adress, fee, description, url) {
     this.name = name;
     this.adress = adress;
